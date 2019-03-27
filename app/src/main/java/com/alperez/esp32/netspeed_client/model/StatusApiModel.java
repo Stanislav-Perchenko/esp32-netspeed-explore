@@ -7,7 +7,7 @@ import com.google.gson.annotations.SerializedName;
 /**
  * Created by stanislav.perchenko on 3/27/2019
  */
-public class CommonApiModel {
+public class StatusApiModel {
 
     @SerializedName("status")
     @Nullable

@@ -88,26 +88,30 @@ public abstract class BaseHttpRequest<T> {
         private HttpExecutor httpExecutor;
         private ParseResponseHandler<TT> responseParser;
 
-        public Builder<TT> setHttpClient(OkHttpClient client) {
+        public final Builder<TT> setHttpClient(OkHttpClient client) {
             getRequestInstance().setHttpClient(this.client = client);
             return this;
         }
 
-        public Builder<TT> setParserGson(@Nullable Gson parserGson) {
+        public final Builder<TT> setParserGson(@Nullable Gson parserGson) {
             getRequestInstance().setParserGson(parserGson);
             return this;
         }
 
-        public Builder<TT> useResponseParser(@Nullable ParseResponseHandler<TT> responseParser) {
+        public final Builder<TT> useResponseParser(@Nullable ParseResponseHandler<TT> responseParser) {
             this.responseParser = responseParser;
             return this;
         }
 
-        public Builder<TT> onExecutor(HttpExecutor executor) {
+        public final Builder<TT> onExecutor(HttpExecutor executor) {
             httpExecutor = executor;
             return this;
         }
 
+        /**
+         * Override this method in subclasses to validate subclass parameters set
+         * @return
+         */
         public BaseHttpRequest<TT> build() {
             if (client == null) {
                 throw new IllegalStateException("HTTP client is not set");
@@ -116,12 +120,12 @@ public abstract class BaseHttpRequest<T> {
             }
         }
 
-        public int execute(@NonNull HttpCallback<TT> callback) {
+        public final int execute(@NonNull HttpCallback<TT> callback) {
             assert (callback != null);
             if (httpExecutor == null) {
                 throw new IllegalStateException("HTTP executor is not set");
             } else {
-                BaseHttpRequest<TT> req = getRequestInstance();
+                BaseHttpRequest<TT> req = build();
                 httpExecutor.executeHttpRequest(req, responseParser, callback);
                 return req.getSequenceNumber();
             }

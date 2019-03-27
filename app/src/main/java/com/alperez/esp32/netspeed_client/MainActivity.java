@@ -1,16 +1,22 @@
 package com.alperez.esp32.netspeed_client;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
+import android.support.v7.app.AppCompatActivity;
+import android.view.View;
+import android.widget.RadioGroup;
+import android.widget.SeekBar;
+import android.widget.TextView;
 
-import com.alperez.esp32.netspeed_client.http.utils.ParseResponseHandler;
 import com.alperez.esp32.netspeed_client.http.engine.HttpCallback;
 import com.alperez.esp32.netspeed_client.http.engine.HttpExecutor;
 import com.alperez.esp32.netspeed_client.http.error.HttpError;
+import com.alperez.esp32.netspeed_client.http.impl.StartHttpRequest;
 import com.alperez.esp32.netspeed_client.http.impl.StatusHttpRequest;
 import com.alperez.esp32.netspeed_client.http.impl.StopHttpRequest;
 import com.alperez.esp32.netspeed_client.http.utils.HttpClientProvider;
-import com.alperez.esp32.netspeed_client.model.CommonApiModel;
+import com.alperez.esp32.netspeed_client.http.utils.ParseResponseHandler;
+import com.alperez.esp32.netspeed_client.model.StatusApiModel;
 import com.alperez.esp32.netspeed_client.model.StatusModel;
 import com.google.gson.Gson;
 
@@ -21,6 +27,17 @@ import okhttp3.OkHttpClient;
 public class MainActivity extends AppCompatActivity {
 
 
+    private RadioGroup vRgProtocol;
+    private TextView vTxtPort;
+    private TextView vTxtSize;
+    private SeekBar vSeek;
+
+    //----  Device parameters  ----
+    private int mPkgSize;
+    private int mPort = 1111;
+    private String mProtocol;
+
+
     private HttpExecutor httpExecutor;
 
 
@@ -29,30 +46,52 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         httpExecutor = new HttpExecutor();
-        OkHttpClient httpClient = HttpClientProvider.getInstance().getDefaultRESTClient();
-        int sn = StatusHttpRequest.withHttpClient(httpClient).setParserGson(new Gson()).useResponseParser(statusParser).onExecutor(null).execute(new HttpCallback<StatusModel>() {
+
+
+        vRgProtocol = (RadioGroup) findViewById(R.id.radio_select_protocol);
+        vRgProtocol.setOnCheckedChangeListener((group, checkedId) -> checkProtocol(checkedId));
+        checkProtocol(vRgProtocol.getCheckedRadioButtonId());
+
+        (vTxtPort = (TextView) findViewById(R.id.txt_port)).setOnClickListener(v -> showPortDialog());
+        vTxtPort.setText(""+mPort);
+
+        vTxtSize = (TextView) findViewById(R.id.txt_pkg_size);
+        (vSeek = (SeekBar) findViewById(R.id.seek_size)).setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
-            public void onComplete(int seqNumber, JSONObject jData, StatusModel parsedData) {
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                updatePackageSize(progress);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
 
             }
 
             @Override
-            public void onError(int seqNumber, HttpError error) {
+            public void onStopTrackingTouch(SeekBar seekBar) {
 
             }
         });
+        updatePackageSize(vSeek.getProgress());
 
-        sn = StopHttpRequest.withHttpClient(httpClient).setParserGson(new Gson()).useResponseParser((json, parser) -> null).onExecutor(httpExecutor).execute(new HttpCallback<Void>() {
-            @Override
-            public void onComplete(int seqNumber, JSONObject jData, Void parsedData) {
 
-            }
+        findViewById(R.id.action_start).setOnClickListener(this::onAction);
+        findViewById(R.id.action_stop ).setOnClickListener(this::onAction);
+        findViewById(R.id.action_stat ).setOnClickListener(this::onAction);
+    }
 
-            @Override
-            public void onError(int seqNumber, HttpError error) {
 
-            }
-        });
+
+    private void updatePackageSize(int progress) {
+        progress ++;
+        if (progress < 13) {
+            mPkgSize = progress * 1024;
+        } else if (progress < 23) {
+            mPkgSize = (12 + 2*(progress-12)) * 1024;
+        } else {
+            mPkgSize = (32 + 4*(progress-22)) * 1024;
+        }
+        vTxtSize.setText(""+mPkgSize);
     }
 
     @Override
@@ -62,7 +101,97 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private final ParseResponseHandler<StatusModel> statusParser = (String json, Gson parser) -> {
-        CommonApiModel data = parser.fromJson(json, CommonApiModel.class);
+        StatusApiModel data = parser.fromJson(json, StatusApiModel.class);
         return data.statusModel;
+    };
+
+    private void showPortDialog() {
+        NumberSelectionDialog dial = NumberSelectionDialog.builder()
+                .setTitle("Select PORT")
+                .setRange(1000, 9999)
+                .setValue(mPort)
+                .setWrapSelectorWheel(true)
+                .setNegativeButton(android.R.string.cancel)
+                .setPositiveButton(android.R.string.ok)
+                .setCancellable(false)
+                .build();
+        dial.setOnNumbedSelectListener(value -> vTxtPort.setText(""+(mPort = value)));
+        dial.show(getSupportFragmentManager(), "N participants picker");
+    }
+
+    private void checkProtocol(final int checkedId) {
+        switch (checkedId) {
+            case R.id.radio_udp:
+                mProtocol = "UDP";
+                break;
+            case R.id.radio_tcp:
+                mProtocol = "TCP";
+                break;
+            default:
+                throw new RuntimeException("Wrong rad. butt. ID");
+        }
+    }
+
+    private void onAction(View v) {
+        OkHttpClient httpClient = HttpClientProvider.getInstance().getDefaultRESTClient();
+        switch (v.getId()) {
+            case R.id.action_start:
+                StartHttpRequest
+                        .withHttpClient(httpClient)
+                        .setProtocol(mProtocol)
+                        .setPort(mPort)
+                        .setPackageSize(mPkgSize)
+                        .onExecutor(httpExecutor)
+                        .execute(startCallback);
+                break;
+            case R.id.action_stop:
+                StopHttpRequest.withHttpClient(httpClient).onExecutor(httpExecutor).execute(stopCallback);
+                break;
+            case R.id.action_stat:
+                StatusHttpRequest
+                        .withHttpClient(httpClient)
+                        .useResponseParser((responseText, parser) -> parser.fromJson(responseText, StatusApiModel.class))
+                        .onExecutor(httpExecutor)
+                        .execute(statusCallback);
+                break;
+        }
+    }
+
+
+
+    private final HttpCallback<StatusApiModel> statusCallback = new HttpCallback<StatusApiModel>() {
+        @Override
+        public void onComplete(int seqNumber, JSONObject rawJson, @Nullable StatusApiModel parsedData) {
+
+        }
+
+        @Override
+        public void onError(int seqNumber, HttpError error) {
+
+        }
+    };
+
+    private final HttpCallback<Void> startCallback = new HttpCallback<Void>() {
+        @Override
+        public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
+
+        }
+
+        @Override
+        public void onError(int seqNumber, HttpError error) {
+
+        }
+    };
+
+    private final HttpCallback<Void> stopCallback = new HttpCallback<Void>() {
+        @Override
+        public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
+
+        }
+
+        @Override
+        public void onError(int seqNumber, HttpError error) {
+
+        }
     };
 }

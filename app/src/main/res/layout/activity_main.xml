@@ -1,18 +1,146 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:context=".MainActivity">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:textAllCaps="true"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/textLightGray"
+        android:text="transmission params"/>
 
-</android.support.constraint.ConstraintLayout>
+    <RadioGroup android:id="@+id/radio_select_protocol"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginLeft="56dp"
+        android:layout_marginRight="56dp"
+        android:checkedButton="@id/radio_udp">
+        <RadioButton android:id="@+id/radio_udp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:text="UDP"/>
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"/>
+        <RadioButton android:id="@+id/radio_tcp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:text="TCP"/>
+    </RadioGroup>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginLeft="56dp"
+        android:layout_marginRight="56dp"
+        android:baselineAligned="true">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Port"/>
+        <TextView android:id="@+id/txt_port"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="12dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:drawableRight="@drawable/ic_arrow_right"
+            android:drawablePadding="6dp"
+            android:text="8888"/>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginLeft="56dp"
+        android:layout_marginRight="56dp"
+        android:baselineAligned="true">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Package size (bytes):"/>
+        <TextView android:id="@+id/txt_pkg_size"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="12dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:text="1024"/>
+    </LinearLayout>
+
+    <SeekBar android:id="@+id/seek_size"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginLeft="48dp"
+        android:layout_marginRight="48dp"
+        android:min="0"
+        android:max="25"
+        android:progress="2"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:background="@color/textLightGray"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"/>
+        <Button android:id="@+id/action_stop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Stop"/>
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"/>
+        <Button android:id="@+id/action_start"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Start"/>
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"/>
+        <Button android:id="@+id/action_stat"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Status"/>
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0"/>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/textLightGray"/>
+
+</LinearLayout>
