@@ -218,7 +218,7 @@ public abstract class BaseHttpRequest<T> {
                 break;
         }
 
-        //--- Execute request ---
+        //----  Execute request  ----
         String httpRespPayload = "";
         HttpResponse response = new HttpResponse(getSequenceNumber());
         try {
