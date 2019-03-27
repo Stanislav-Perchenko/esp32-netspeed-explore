@@ -1,0 +1,44 @@
+menu "UDP speed example Configuration"
+
+choice WIFI_OPERATION_MODE
+    prompt "WiFi operation mode"
+    default Station
+    help
+	        Select WiFi operation mode. Either 'Station' or 'Access Point'
+config WIFI_OPERATION_MODE_STA
+	bool "Station"
+   	help
+   		Choose WiFi operation mode as a 'Station'
+config WIFI_OPERATION_MODE_AP
+   	bool "AP"
+   	help
+       	Choose WiFi operation mode as an 'Access Point'
+endchoice
+
+config WIFI_SSID
+    string "WiFi SSID"
+    default "myssid"
+    help
+        SSID (network name) for the example to connect to.
+
+config WIFI_PASSWORD
+    string "WiFi Password"
+    default "mypassword"
+    help
+        WiFi password (WPA or WPA2) for the example to use.
+        Can be left blank if the network has no security set.
+
+config HTTP_SERVER_NAME
+    string "Conrol HTTP Server name"
+    default "ESP32-Speedtest"
+    help
+        The 'Server' header in HTTP response.
+        
+config TCP_CONTROL_PORT
+    int "TCP control server port"
+    range 0 65535
+    default 8888
+    help
+        Local port the server which controls operation
+
+endmenu
