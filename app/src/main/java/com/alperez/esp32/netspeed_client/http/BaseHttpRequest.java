@@ -10,6 +10,7 @@ import com.alperez.esp32.netspeed_client.http.engine.HttpExecutor;
 import com.alperez.esp32.netspeed_client.http.error.ApiError;
 import com.alperez.esp32.netspeed_client.http.error.ApiHttpError;
 import com.alperez.esp32.netspeed_client.http.error.HttpError;
+import com.alperez.esp32.netspeed_client.http.error.HttpOnlyError;
 import com.alperez.esp32.netspeed_client.http.error.IOHttpError;
 import com.alperez.esp32.netspeed_client.http.error.LocalHttpError;
 import com.alperez.esp32.netspeed_client.http.error.ParseHttpError;
@@ -228,14 +229,16 @@ public abstract class BaseHttpRequest<T> {
             response.headers = okResponse.headers();
 
             httpRespPayload = okResponse.body().string();
-            response.rawJson = new JSONObject(httpRespPayload);
-            boolean apiSuccess = response.rawJson.getBoolean("success");
+            final boolean hasPayload = !TextUtils.isEmpty(httpRespPayload);
+            if (hasPayload) response.rawJson = new JSONObject(httpRespPayload);
+            final boolean apiSuccess = hasPayload ? response.rawJson.getBoolean("success") : false;
+
             if ((response.httpCode >= 200) && (response.httpCode < 300) && apiSuccess) {
                 if (optParser != null) {
                     String dataJText = response.rawJson.getJSONObject("data").toString();
                     response.data = optParser.parseResponse(dataJText, getFinalGson());
                 }
-            } else {
+            } else if (hasPayload){
                 ApiHttpError.Builder eBuild = ApiHttpError.builder().setHttpCode(response.httpCode).setHttpMessage(response.httpMessage);
                 JSONArray jErrors = response.rawJson.optJSONArray("errors");
                 if (jErrors != null) {
@@ -245,6 +248,8 @@ public abstract class BaseHttpRequest<T> {
                     }
                 }
                 response.error = eBuild.build();
+            } else {
+                response.error = HttpOnlyError.create(response.httpCode, response.httpMessage);
             }
 
         } catch (IOException e) {
