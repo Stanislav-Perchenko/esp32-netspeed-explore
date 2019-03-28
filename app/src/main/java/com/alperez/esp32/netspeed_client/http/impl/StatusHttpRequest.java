@@ -1,8 +1,7 @@
 package com.alperez.esp32.netspeed_client.http.impl;
 
-import com.alperez.esp32.netspeed_client.http.BaseHttpRequest;
+import com.alperez.esp32.netspeed_client.http.engine.BaseHttpRequest;
 import com.alperez.esp32.netspeed_client.model.StatusApiModel;
-import com.alperez.esp32.netspeed_client.model.StatusModel;
 
 import java.util.Map;
 

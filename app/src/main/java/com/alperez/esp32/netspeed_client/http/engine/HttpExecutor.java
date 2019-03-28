@@ -5,7 +5,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.Nullable;
 
-import com.alperez.esp32.netspeed_client.http.BaseHttpRequest;
 import com.alperez.esp32.netspeed_client.http.utils.ParseResponseHandler;
 
 import java.util.Deque;
@@ -96,13 +95,8 @@ public class HttpExecutor {
                     currJob = jobQueue.removeFirst();
                 }
 
-                BaseHttpRequest.HttpResponse<?> response;
-                try {
-                    response = currJob.request.executeSynchronously(currJob.responseParser);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    response = BaseHttpRequest.HttpResponse.fromLocalError(currJob.request, ex);
-                }
+                BaseHttpRequest.HttpResponse<?> response = currJob.request.executeSynchronously(currJob.responseParser);
+
                 resultHandler.notifyResult(response, currJob.callback);
 
             } // while()

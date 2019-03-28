@@ -2,12 +2,15 @@ package com.alperez.esp32.netspeed_client;
 
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.alperez.esp32.netspeed_client.http.engine.BaseHttpRequest;
 import com.alperez.esp32.netspeed_client.http.engine.HttpCallback;
 import com.alperez.esp32.netspeed_client.http.engine.HttpExecutor;
 import com.alperez.esp32.netspeed_client.http.error.HttpError;
@@ -22,9 +25,12 @@ import com.google.gson.Gson;
 
 import org.json.JSONObject;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import okhttp3.OkHttpClient;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements HttpErrorDisplayFragment.BadHttpResultProvider {
 
 
     private RadioGroup vRgProtocol;
@@ -39,6 +45,9 @@ public class MainActivity extends AppCompatActivity {
 
 
     private HttpExecutor httpExecutor;
+    private Map<Integer, BaseHttpRequest<?>> mRequestsInProgress = new HashMap<>();
+
+    private Fragment overlayFragment;
 
 
     @Override
@@ -134,9 +143,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void onAction(View v) {
         OkHttpClient httpClient = HttpClientProvider.getInstance().getDefaultRESTClient();
+        BaseHttpRequest<?> request;
         switch (v.getId()) {
             case R.id.action_start:
-                StartHttpRequest
+                request = StartHttpRequest
                         .withHttpClient(httpClient)
                         .setProtocol(mProtocol)
                         .setPort(mPort)
@@ -145,17 +155,23 @@ public class MainActivity extends AppCompatActivity {
                         .execute(startCallback);
                 break;
             case R.id.action_stop:
-                StopHttpRequest.withHttpClient(httpClient).onExecutor(httpExecutor).execute(stopCallback);
+                request = StopHttpRequest.withHttpClient(httpClient).onExecutor(httpExecutor).execute(stopCallback);
                 break;
             case R.id.action_stat:
-                StatusHttpRequest
+                request = StatusHttpRequest
                         .withHttpClient(httpClient)
                         .useResponseParser((responseText, parser) -> parser.fromJson(responseText, StatusApiModel.class))
                         .onExecutor(httpExecutor)
                         .execute(statusCallback);
                 break;
+            default:
+                request = null;
         }
+        if (request != null) mRequestsInProgress.put(request.getSequenceNumber(), request);
     }
+
+
+
 
 
 
@@ -167,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onError(int seqNumber, HttpError error) {
-
+            showHttpRequestError(mRequestsInProgress.remove(seqNumber), error);
         }
     };
 
@@ -179,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onError(int seqNumber, HttpError error) {
-
+            showHttpRequestError(mRequestsInProgress.remove(seqNumber), error);
         }
     };
 
@@ -191,7 +207,47 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onError(int seqNumber, HttpError error) {
-
+            showHttpRequestError(mRequestsInProgress.remove(seqNumber), error);
         }
     };
+
+
+
+
+
+
+
+    /**********************************************************************************************/
+    /******************************  Display HTTP request failure  ********************************/
+    /**********************************************************************************************/
+
+    private final Map<Integer, HttpErrorDisplayFragment.BadHttpResultViewModel> errorViewModels = new HashMap<>();
+
+    private void showHttpRequestError(BaseHttpRequest<?> request, HttpError error) {
+        if (request == null) return;
+        HttpErrorDisplayFragment.BadHttpResultViewModel viewModel = new HttpErrorDisplayFragment.BadHttpResultViewModel(request.getFinalHttpUrlWithParams().toString(), error);
+        errorViewModels.put(request.getSequenceNumber(), viewModel);
+
+
+
+        final boolean needReplace = overlayFragment != null;
+        overlayFragment = HttpErrorDisplayFragment.newInstance(request.getSequenceNumber());
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction().setCustomAnimations(R.anim.fly_from_right, R.anim.fly_to_left);
+        if (needReplace) {
+            ft.replace(R.id.overlay_fragment_container, overlayFragment);
+        } else {
+            ft.add(R.id.overlay_fragment_container, overlayFragment);
+        }
+        ft.commit();
+    }
+
+    @Override
+    public HttpErrorDisplayFragment.BadHttpResultViewModel getHttpResponseBySequenceNumber(int httpReqSequenceNum) {
+        return errorViewModels.get(httpReqSequenceNum);
+    }
+
+    @Override
+    public void removeHttpResponseFromCache(int httpReqSequenceNum) {
+        errorViewModels.remove(httpReqSequenceNum);
+    }
 }
