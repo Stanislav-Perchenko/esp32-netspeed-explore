@@ -1,11 +1,13 @@
 package com.alperez.esp32.netspeed_client;
 
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -37,6 +39,11 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private TextView vTxtPort;
     private TextView vTxtSize;
     private SeekBar vSeek;
+    private View vFullScreenProgress;
+    private ViewGroup vStatisticsPanel;
+    private TextView vTxtRemStatTitle;
+    private TextView vTxtRemoteDataSize;
+    private TextView vTxtRemoteSpeed;
 
     //----  Device parameters  ----
     private int mPkgSize;
@@ -83,6 +90,18 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         });
         updatePackageSize(vSeek.getProgress());
 
+        (vFullScreenProgress = findViewById(R.id.full_screen_progress)).setVisibility(View.GONE);
+
+
+        (vStatisticsPanel = (ViewGroup) findViewById(R.id.statistics_panel)).setVisibility(View.GONE);
+
+        vTxtRemStatTitle = (TextView) vStatisticsPanel.findViewById(R.id.txt_remote_stats_title);
+        Drawable[] drr = vTxtRemStatTitle.getCompoundDrawables();
+        drr[0].setLevel(1);
+        drr[2].setLevel(0);
+
+        vTxtRemoteDataSize = (TextView) vStatisticsPanel.findViewById(R.id.remote_data_size);
+        vTxtRemoteSpeed = (TextView) vStatisticsPanel.findViewById(R.id.remote_speed);
 
         findViewById(R.id.action_start).setOnClickListener(this::onAction);
         findViewById(R.id.action_stop ).setOnClickListener(this::onAction);
@@ -170,6 +189,19 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     }
 
 
+    private int mFullScreenProgressDepth;
+    private void showFullScreenProgressIncremental() {
+        if (++ mFullScreenProgressDepth == 1) vFullScreenProgress.setVisibility(View.VISIBLE);
+    }
+
+    private void hideFullScreenProgressIncremental() {
+        if (mFullScreenProgressDepth > 0) {
+            mFullScreenProgressDepth --;
+            if (mFullScreenProgressDepth == 0) vFullScreenProgress.setVisibility(View.GONE);
+        }
+    }
+
+
     /**********************************************************************************************/
     /******************************  Make HTTP calls  *********************************************/
     /**********************************************************************************************/
@@ -199,22 +231,26 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
             default:
                 request = null;
         }
-        if (request != null) mRequestsInProgress.put(request.getSequenceNumber(), request);
+        if (request != null) {
+            mRequestsInProgress.put(request.getSequenceNumber(), request);
+            showFullScreenProgressIncremental();
+        }
     }
-
-
-
-
 
 
     private final HttpCallback<StatusApiModel> statusCallback = new HttpCallback<StatusApiModel>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable StatusApiModel parsedData) {
+            if ((parsedData != null) && (parsedData.statusModel != null) && (parsedData.statisticsModel !=null)) {
+                setRemoteDeviceStatus(parsedData);
+            }
+            hideFullScreenProgressIncremental();
             showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
         }
 
         @Override
         public void onError(int seqNumber, HttpError error) {
+            hideFullScreenProgressIncremental();
             showHttpRequestError(mRequestsInProgress.remove(seqNumber), error);
         }
     };
@@ -222,11 +258,13 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private final HttpCallback<Void> startCallback = new HttpCallback<Void>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
+            hideFullScreenProgressIncremental();
             showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
         }
 
         @Override
         public void onError(int seqNumber, HttpError error) {
+            hideFullScreenProgressIncremental();
             showHttpRequestError(mRequestsInProgress.remove(seqNumber), error);
         }
     };
@@ -234,11 +272,13 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private final HttpCallback<Void> stopCallback = new HttpCallback<Void>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
+            hideFullScreenProgressIncremental();
             showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
         }
 
         @Override
         public void onError(int seqNumber, HttpError error) {
+            hideFullScreenProgressIncremental();
             showHttpRequestError(mRequestsInProgress.remove(seqNumber), error);
         }
     };
@@ -289,5 +329,46 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     @Override
     public void removeFailedHttpResponseFromCache(int httpReqSequenceNum) {
         errorViewModels.remove(httpReqSequenceNum);
+    }
+
+
+    /**********************************************************************************************/
+    /******************************  Display Remote device statistics  ****************************/
+    /**********************************************************************************************/
+    private StatusApiModel mRemoteDeviceStatus;
+
+    private void setRemoteDeviceStatus(StatusApiModel nStatus) {
+        final String prevDeviceState = (mRemoteDeviceStatus == null) ? "IDLE" : mRemoteDeviceStatus.statusModel.getDeviceState();
+        mRemoteDeviceStatus = nStatus;
+
+        final int n_packs = nStatus.statisticsModel.getnPackagesSent();
+        vTxtRemoteDataSize.setText(String.format("%d/%d", n_packs, n_packs * nStatus.statusModel.getTransmitPackageSize()));
+        final float spd = (nStatus.statisticsModel.getSpeedBytesPerSecond() * 8) / 1024f;
+        vTxtRemoteSpeed.setText(String.format("%.1f", spd));
+
+
+        if ("IDLE".equals(prevDeviceState) && "TRANS".equals(mRemoteDeviceStatus.statusModel.getDeviceState())) {
+            vStatisticsPanel.setVisibility(View.VISIBLE);
+            startReceiver();
+        } else if ("IDLE".equals(mRemoteDeviceStatus.statusModel.getDeviceState())) {
+            vStatisticsPanel.setVisibility(View.GONE);
+            stopReceiver();
+        }
+    }
+
+
+
+
+    private void startReceiver() {
+        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    }
+
+    private void stopReceiver() {
+        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    }
+
+    private boolean isReceiverStarted() {
+        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        return false;
     }
 }

@@ -12,7 +12,7 @@ public class GlobalProperties {
      */
     public static final Locale FORMATTER_LOCALE = Locale.UK;
 
-    public static final String BACKEND_API_URL = "https://192.168.1.1:12345";
+    public static final String BACKEND_API_URL = "http://192.168.1.1:8888";
 
     /********************  HTTP client-related definitions  ***************************************/
     public static final boolean HTTP_UPSTREAM_USE_GZIP = true;

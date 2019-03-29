@@ -13,7 +13,7 @@ public class StatusApiModel {
     @Nullable
     public StatusModel statusModel;
 
-    @SerializedName("statistic")
+    @SerializedName("statistics")
     @Nullable
     public StatisticsModel statisticsModel;
 }

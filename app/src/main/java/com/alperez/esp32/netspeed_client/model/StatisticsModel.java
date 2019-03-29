@@ -9,7 +9,7 @@ public class StatisticsModel {
 
     @SerializedName("speed")
     private Integer speedBytesPerSecond;
-    @SerializedName("n_pkg_sent")
+    @SerializedName("n_pkg_transm")
     private Integer nPackagesSent;
     @SerializedName("n_pkg_rcv_total")
     private Integer nPackagesReceiveTotal;
