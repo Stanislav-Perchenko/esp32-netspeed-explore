@@ -20,7 +20,7 @@ public class StartHttpRequest extends BaseHttpRequest<Void> {
     }
 
     @Override
-    protected Method httpMethod() {
+    public Method httpMethod() {
         return Method.GET;
     }
 

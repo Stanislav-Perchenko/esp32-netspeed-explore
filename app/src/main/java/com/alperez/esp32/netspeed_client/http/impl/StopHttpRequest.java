@@ -26,7 +26,7 @@ public class StopHttpRequest extends BaseHttpRequest<Void> {
     }
 
     @Override
-    protected Method httpMethod() {
+    public Method httpMethod() {
         return Method.GET;
     }
 

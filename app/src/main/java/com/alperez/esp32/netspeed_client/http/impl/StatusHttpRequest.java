@@ -28,7 +28,7 @@ public class StatusHttpRequest extends BaseHttpRequest<StatusApiModel> {
     }
 
     @Override
-    protected Method httpMethod() {
+    public Method httpMethod() {
         return Method.GET;
     }
 

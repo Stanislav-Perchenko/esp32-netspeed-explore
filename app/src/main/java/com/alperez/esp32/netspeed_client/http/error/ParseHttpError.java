@@ -8,7 +8,7 @@ import org.json.JSONException;
  * Created by stanislav.perchenko on 3/26/2019
  */
 @AutoValue
-public abstract class ParseHttpError implements ServerRespondHttpError {
+public abstract class ParseHttpError implements ServerRespondHttpError, ExceptionProvidingError {
 
     public abstract int httpStatusCode();
     public abstract String httpStatusMessage();
@@ -27,5 +27,10 @@ public abstract class ParseHttpError implements ServerRespondHttpError {
         public abstract Builder setParseException(JSONException parseException);
 
         public abstract ParseHttpError build();
+    }
+
+    @Override
+    public Exception getException() {
+        return parseException();
     }
 }

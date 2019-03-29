@@ -140,7 +140,7 @@ public abstract class BaseHttpRequest<T> {
     /***********************  Request logic to be implemented by subclasses  **********************/
     /**********************************************************************************************/
 
-    protected abstract Method httpMethod();
+    public abstract Method httpMethod();
     protected abstract void onSetParameters(Map<String, String> parameters);
 
     /**

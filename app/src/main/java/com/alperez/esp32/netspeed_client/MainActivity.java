@@ -225,7 +225,7 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
 
     private void showHttpRequestError(BaseHttpRequest<?> request, HttpError error) {
         if (request == null) return;
-        HttpErrorDisplayFragment.BadHttpResultViewModel viewModel = new HttpErrorDisplayFragment.BadHttpResultViewModel(request.getFinalHttpUrlWithParams().toString(), error);
+        HttpErrorDisplayFragment.BadHttpResultViewModel viewModel = new HttpErrorDisplayFragment.BadHttpResultViewModel(request.httpMethod(), request.getFinalHttpUrlWithParams().toString(), error);
         errorViewModels.put(request.getSequenceNumber(), viewModel);
 
 
