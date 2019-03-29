@@ -89,7 +89,12 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         findViewById(R.id.action_stat ).setOnClickListener(this::onAction);
     }
 
-
+    @Override
+    public void onBackPressed() {
+        if (!removeOverlayFragment()) {
+            super.onBackPressed();
+        }
+    }
 
     private void updatePackageSize(int progress) {
         progress ++;
@@ -153,8 +158,15 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         ft.commit();
     }
 
-    private void removeOverlayFragment() {
-        //TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    private boolean removeOverlayFragment() {
+        if (overlayFragment == null) return false;
+
+        getSupportFragmentManager().beginTransaction()
+                .setCustomAnimations(R.anim.fly_from_left, R.anim.fly_to_right)
+                .remove(overlayFragment)
+                .commit();
+        overlayFragment = null;
+        return true;
     }
 
 
