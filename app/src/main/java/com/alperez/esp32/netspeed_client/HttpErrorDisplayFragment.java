@@ -46,8 +46,8 @@ public class HttpErrorDisplayFragment extends Fragment {
     }
 
     public interface BadHttpResultProvider {
-        HttpErrorDisplayFragment.BadHttpResultViewModel getHttpResponseBySequenceNumber(int httpReqSequenceNum);
-        void removeHttpResponseFromCache(int httpReqSequenceNum);
+        BadHttpResultViewModel getFailedHttpResponseBySequenceNumber(int httpReqSequenceNum);
+        void removeFailedHttpResponseFromCache(int httpReqSequenceNum);
     }
 
     public static HttpErrorDisplayFragment newInstance(int httpReqSequenceNum) {
@@ -109,13 +109,13 @@ public class HttpErrorDisplayFragment extends Fragment {
     }
 
 
-    private HttpErrorDisplayFragment.BadHttpResultViewModel badHttpResult;
+    private BadHttpResultViewModel badHttpResult;
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         if (badHttpResult == null) {
-            badHttpResult = httpResponseProvider.getHttpResponseBySequenceNumber(httpReqSequenceNum);
+            badHttpResult = httpResponseProvider.getFailedHttpResponseBySequenceNumber(httpReqSequenceNum);
             if (badHttpResult != null) {
-                httpResponseProvider.removeHttpResponseFromCache(httpReqSequenceNum);
+                httpResponseProvider.removeFailedHttpResponseFromCache(httpReqSequenceNum);
             } else {
                 return;
             }
@@ -124,8 +124,6 @@ public class HttpErrorDisplayFragment extends Fragment {
     }
 
     private void populateHttpResponse(BaseHttpRequest.Method method, String url, HttpError error) {
-        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
         vTxtScreenTitle.setText(getScreenTitleByErrorType(error.getClass()));
         vTxtRequest.setText(getDisplayRequest(method, url));
         displayHttpCode(error, vTxtHttpCode);

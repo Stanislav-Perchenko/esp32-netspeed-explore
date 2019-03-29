@@ -30,7 +30,7 @@ import java.util.Map;
 
 import okhttp3.OkHttpClient;
 
-public class MainActivity extends AppCompatActivity implements HttpErrorDisplayFragment.BadHttpResultProvider {
+public class MainActivity extends AppCompatActivity implements HttpErrorDisplayFragment.BadHttpResultProvider, HttpSuccessDisplayFragment.SuccessHttpResultProvider {
 
 
     private RadioGroup vRgProtocol;
@@ -141,6 +141,26 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         }
     }
 
+    private void showOverlayFragment(Fragment f) {
+        final boolean needReplace = overlayFragment != null;
+        overlayFragment = f;
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction().setCustomAnimations(R.anim.fly_from_right, R.anim.fly_to_left);
+        if (needReplace) {
+            ft.replace(R.id.overlay_fragment_container, overlayFragment);
+        } else {
+            ft.add(R.id.overlay_fragment_container, overlayFragment);
+        }
+        ft.commit();
+    }
+
+    private void removeOverlayFragment() {
+        //TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    }
+
+
+    /**********************************************************************************************/
+    /******************************  Make HTTP calls  *********************************************/
+    /**********************************************************************************************/
     private void onAction(View v) {
         OkHttpClient httpClient = HttpClientProvider.getInstance().getDefaultRESTClient();
         BaseHttpRequest<?> request;
@@ -178,7 +198,7 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private final HttpCallback<StatusApiModel> statusCallback = new HttpCallback<StatusApiModel>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable StatusApiModel parsedData) {
-
+            showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
         }
 
         @Override
@@ -190,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private final HttpCallback<Void> startCallback = new HttpCallback<Void>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
-
+            showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
         }
 
         @Override
@@ -202,7 +222,7 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private final HttpCallback<Void> stopCallback = new HttpCallback<Void>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
-
+            showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
         }
 
         @Override
@@ -212,10 +232,28 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     };
 
 
+    /**********************************************************************************************/
+    /******************************  Display HTTP request success  ********************************/
+    /**********************************************************************************************/
+    private final Map<Integer, HttpSuccessDisplayFragment.SuccessHttpResultViewModel> successViewModels = new HashMap<>();
 
+    private void showHttpSuccessResult(BaseHttpRequest<?> request, JSONObject rawJson) {
+        if (request == null) return;
+        HttpSuccessDisplayFragment.SuccessHttpResultViewModel viewModel = new HttpSuccessDisplayFragment.SuccessHttpResultViewModel(request.httpMethod(), request.getFinalHttpUrlWithParams().toString(), 200, "OK", rawJson);
+        successViewModels.put(request.getSequenceNumber(), viewModel);
 
+        showOverlayFragment(HttpSuccessDisplayFragment.newInstance(request.getSequenceNumber()));
+    }
 
+    @Override
+    public HttpSuccessDisplayFragment.SuccessHttpResultViewModel getSuccessHttpResponseBySequenceNumber(int httpReqSequenceNum) {
+        return successViewModels.get(httpReqSequenceNum);
+    }
 
+    @Override
+    public void removeSuccessHttpResponseFromCache(int httpReqSequenceNum) {
+        successViewModels.remove(httpReqSequenceNum);
+    }
 
     /**********************************************************************************************/
     /******************************  Display HTTP request failure  ********************************/
@@ -228,26 +266,16 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         HttpErrorDisplayFragment.BadHttpResultViewModel viewModel = new HttpErrorDisplayFragment.BadHttpResultViewModel(request.httpMethod(), request.getFinalHttpUrlWithParams().toString(), error);
         errorViewModels.put(request.getSequenceNumber(), viewModel);
 
-
-
-        final boolean needReplace = overlayFragment != null;
-        overlayFragment = HttpErrorDisplayFragment.newInstance(request.getSequenceNumber());
-        FragmentTransaction ft = getSupportFragmentManager().beginTransaction().setCustomAnimations(R.anim.fly_from_right, R.anim.fly_to_left);
-        if (needReplace) {
-            ft.replace(R.id.overlay_fragment_container, overlayFragment);
-        } else {
-            ft.add(R.id.overlay_fragment_container, overlayFragment);
-        }
-        ft.commit();
+        showOverlayFragment(HttpErrorDisplayFragment.newInstance(request.getSequenceNumber()));
     }
 
     @Override
-    public HttpErrorDisplayFragment.BadHttpResultViewModel getHttpResponseBySequenceNumber(int httpReqSequenceNum) {
+    public HttpErrorDisplayFragment.BadHttpResultViewModel getFailedHttpResponseBySequenceNumber(int httpReqSequenceNum) {
         return errorViewModels.get(httpReqSequenceNum);
     }
 
     @Override
-    public void removeHttpResponseFromCache(int httpReqSequenceNum) {
+    public void removeFailedHttpResponseFromCache(int httpReqSequenceNum) {
         errorViewModels.remove(httpReqSequenceNum);
     }
 }
