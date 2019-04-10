@@ -33,7 +33,7 @@ public final class BitrateMeter {
 
     public BitrateMeter(int measureWindowSeconds, @NonNull OnBitrateListener callback) {
         assert(callback != null);
-        measureWindowNanos = (this.measureWindowSeconds = measureWindowSeconds) * 1000000000;
+        measureWindowNanos = (this.measureWindowSeconds = measureWindowSeconds) * 1_000_000_000;
         this.callback = callback;
         reset();
     }

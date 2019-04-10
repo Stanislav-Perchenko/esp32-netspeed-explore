@@ -18,43 +18,12 @@
 static const char *TAG="UDP_TRANSMIT";
 
 void buildDataPackage(transm_data_buffer_t *pkg, uint32_t index) {
-	uint8_t *p = pkg->data.bytes;
-	uint32_t tmp;
 	index ++;
-
-	/*tmp = (uint32_t) pkg->zise;
-	ESP_LOGI(TAG, " tmp size = %d", tmp);
-	p[3] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[2] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[1] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[0] = (uint8_t)(tmp & 0xFF);
-
-	tmp = index;
-	p[7] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[6] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[5] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[4] = (uint8_t)(tmp & 0xFF);
-
-	tmp = (uint32_t) pkg->zise;
-	p[11] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[10] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[9] = (uint8_t)(tmp & 0xFF);
-	tmp = tmp >> 8;
-	p[8] = (uint8_t)(tmp & 0xFF);*/
-
 	pkg->data.numbers[0] = (uint32_t) pkg->zise;
 	pkg->data.numbers[1] = index;
 
 	uint8_t key[6];
-	uint32_t inv_idx = index ^ 0xFFFF;
+	uint32_t inv_idx = index ^ 0xFFFFFFFF;
 	key[0] = (uint8_t)index;
 	index = index >> 8;
 	key[1] = (uint8_t)index;
@@ -67,7 +36,6 @@ void buildDataPackage(transm_data_buffer_t *pkg, uint32_t index) {
 	key[5] = (uint8_t)inv_idx;
 	rc4_init(key, 6);
 	rc4_output(pkg->data.bytes, 8, pkg->zise - 8);
-
 }
 
 static void task_worker(void *arg) {

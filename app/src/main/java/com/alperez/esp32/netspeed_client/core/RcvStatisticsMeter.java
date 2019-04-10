@@ -60,6 +60,7 @@ public class RcvStatisticsMeter {
             lastPkgIndex = pkgIndex;
 
             final byte[] pkgKey= getPackageRC4Key(data[4], data[5], data[6]);
+
             rc4.init(pkgKey);
             if (reference_array == null || reference_array.length < nBytesPayload) reference_array = new byte[nBytesPayload];
             rc4.nextBytes(reference_array, 0, nBytesPayload);

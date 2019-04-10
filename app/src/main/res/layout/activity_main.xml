@@ -159,7 +159,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:textSize="19sp"
                 android:textStyle="bold"
                 android:textColor="@color/textLightGray"
@@ -168,7 +168,7 @@
             <TableLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="6dp"
                 android:shrinkColumns="1"
                 android:stretchColumns="1">
                 <TableRow
@@ -214,7 +214,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
                 android:textSize="19sp"
                 android:textStyle="bold"
                 android:textColor="@color/textLightGray"
@@ -224,7 +224,7 @@
             <TableLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:shrinkColumns="1"
                 android:stretchColumns="1">
                 <TableRow
@@ -265,7 +265,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginRight="24dp"
-                        android:text="% failed:"/>
+                        android:text="Packages lost:"/>
                     <TextView android:id="@+id/local_packages_lost"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

@@ -17,7 +17,7 @@ public class RC4 {
 
         byte temp;
         for (int idxI=0, idxJ=0; idxI < 256; idxI++) {
-            idxJ = (idxJ + key[idxI % key.length] + S[idxI]) % 256;
+            idxJ = (idxJ + (key[idxI % key.length] & 0x0000_00FF) + (S[idxI] & 0x0000_00FF)) % 256;
             temp = S[idxI];
             S[idxI] = S[idxJ];
             S[idxJ] = temp;
@@ -27,17 +27,17 @@ public class RC4 {
     }
 
     public synchronized void nextBytes(byte[] dst, int index, int length) {
-        int temp;
+        byte temp;
         for (int counter = 0; counter < length; counter++) {
 
             i = (i + 1) % 256;
-            j = (j + S[i]) % 256;
+            j = (j + (S[i]&0x0000_00FF)) % 256;
 
             temp = S[j];
             S[j] = S[i];
-            S[i] = (byte)temp;
+            S[i] = temp;
 
-            dst[index++ ] = S[(temp + S[j]) % 256];
+            dst[index++ ] = S[ ((S[i]&0x0000_00FF) + (S[j]&0x0000_00FF))  % 256 ];
         }
     }
 }
