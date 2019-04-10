@@ -16,8 +16,6 @@ public class RcvStatisticsMeter {
     private int nPkgFailed = 0;
     private int nPkgLost = 0;
     private long nTotalBytes = 0;
-    private int mBitrate;
-
 
     private long lastPkgIndex = -1;
     private final RC4 rc4;
@@ -26,7 +24,7 @@ public class RcvStatisticsMeter {
 
     public RcvStatisticsMeter() {
         rc4 = new RC4();
-        bitrateMeter = new BitrateMeter(3, br -> {});
+        bitrateMeter = new BitrateMeter(1500);
         reset();
     }
 
@@ -37,7 +35,6 @@ public class RcvStatisticsMeter {
             nPkgFailed = 0;
             nPkgLost = 0;
             nTotalBytes = 0;
-            mBitrate = 0;
         }
     }
 
@@ -46,7 +43,7 @@ public class RcvStatisticsMeter {
         boolean isPkgOk = true;
         int n_lost = 0;
         try {
-            bitrateMeter.updateWithSamples(length, AudioFormat.ENCODING_PCM_8BIT);
+            bitrateMeter.moreBytes(length);
             final int pkgSize = (int)getUint32LSB(data, 0);
             if (pkgSize != length) {
                 isPkgOk = false;
@@ -76,7 +73,6 @@ public class RcvStatisticsMeter {
                 if (!isPkgOk) nPkgFailed ++;
                 nPkgLost += n_lost;
                 nTotalBytes += length;
-                mBitrate = bitrateMeter.getCurrentBitrate();
                 return (int)(++nTotalPkgReceived);
             }
         }
@@ -112,7 +108,7 @@ public class RcvStatisticsMeter {
             dst[1] = nPkgFailed;
             dst[2] = nPkgLost;
             dst[3] = nTotalBytes;
-            dst[4] = mBitrate;
         }
+        dst[4] = bitrateMeter.getCurrentBitrate();
     }
 }

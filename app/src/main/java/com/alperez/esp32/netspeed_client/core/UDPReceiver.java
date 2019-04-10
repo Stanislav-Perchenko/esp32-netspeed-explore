@@ -78,6 +78,7 @@ public class UDPReceiver {
             DatagramPacket rcv = new DatagramPacket(dataBuffer, 0, dataBuffer.length);
             int n_rcv;
             Log.d(threadName, "---> Start receiving data on port "+port);
+            rcvMeter.reset();
             while(!released) {
                 try {
                     socket.receive(rcv);

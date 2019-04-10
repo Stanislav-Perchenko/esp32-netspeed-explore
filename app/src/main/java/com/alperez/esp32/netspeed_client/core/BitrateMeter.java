@@ -1,13 +1,13 @@
 package com.alperez.esp32.netspeed_client.core;
 
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
 import com.alperez.esp32.netspeed_client.BuildConfig;
+
+import java.util.Deque;
+import java.util.LinkedList;
 
 /**
  * Created by stanislav.perchenko on 3/15/2018.
@@ -16,97 +16,119 @@ import com.alperez.esp32.netspeed_client.BuildConfig;
 public final class BitrateMeter {
     private static final boolean D = false;
 
-    public interface OnBitrateListener {
-        void onBitrateMeasured(int bitrate);
-    }
 
-    private final int measureWindowSeconds;
-    private final int measureWindowNanos;
-    private final OnBitrateListener callback; // This object is used as a lock for calculation
+    private final long measureWindowNanos;
 
 
-    private long tStamp;
-    private long tNext;
-    private int nBytes;
+    private final Object lock = new Object();
 
+    private long tLastUpdate;
     private int currentBitrate;
 
-    public BitrateMeter(int measureWindowSeconds, @NonNull OnBitrateListener callback) {
-        assert(callback != null);
-        measureWindowNanos = (this.measureWindowSeconds = measureWindowSeconds) * 1_000_000_000;
-        this.callback = callback;
+
+    private final Deque<MemItem> delayLine = new LinkedList<>();
+    private int nBytesAccum;
+
+    public BitrateMeter(int measureWindowMs) {
+        measureWindowNanos = measureWindowMs * 1_000_000L;
         reset();
     }
 
     public void reset() {
-        synchronized (callback) {
-            tStamp = -1;
-            tNext = 0;
-            nBytes = 0;
+        synchronized (lock) {
             currentBitrate = 0;
+            tLastUpdate = SystemClock.elapsedRealtimeNanos();
+            nBytesAccum = 0;
         }
-        reportHandler.obtainMessage(MSG_BITRATE, 0, 0).sendToTarget();
     }
 
     public int getCurrentBitrate() {
-        synchronized (callback) {
+        synchronized (lock) {
             return currentBitrate;
         }
     }
 
-    public void updateWithSamples(int moreSamples, int encoding) {
+    public int moreBytes(int nBytes) {
+        final long t_now = SystemClock.elapsedRealtimeNanos();
+        final long t_past_cutoff = t_now - measureWindowNanos;
+
+        //--- Add segment  ----
+        MemItem mi = getFreeMemItem();
+        mi.set(tLastUpdate, nBytes);
+        delayLine.addLast(mi);
+        nBytesAccum += nBytes;
+
+
+        //--- Remove oldest segments ---
+        int n_removed = 0;
+        while (true) {
+            mi = delayLine.peekFirst();
+            if (mi.tSegmentStart >= t_past_cutoff) {
+                break;
+            } else {
+                delayLine.removeFirst();
+                nBytesAccum -= mi.segmentLength;
+                recycleMemItem(mi);
+                n_removed ++;
+            }
+        }
+
+        //--- Re-calculate bitrate ---
+        long dt = t_now - delayLine.peekFirst().tSegmentStart;
+        if (dt == 0) dt = 1;
+        int br = (int)(8_000_000_000L*nBytesAccum / dt);
 
         if (D && BuildConfig.DEBUG) {
-            String msg = String.format("More samples: %d at time %d ns", moreSamples, SystemClock.elapsedRealtimeNanos());
-            reportHandler.obtainMessage(MSG_LOG, msg).sendToTarget();
+            String text = String.format("t_now=%d, t_past_cutoff=%d, n_removed=%d, delay_len=%d, n_bytes=%d, dt=%d", t_now, t_past_cutoff, n_removed, delayLine.size(), nBytesAccum, dt);
+            Log.d(Thread.currentThread().getName(), text);
         }
 
-        updateWithBytes(moreSamples * MediaUtils.getBytesPerSample(encoding));
-    }
-
-    public void updateWithBytes(int moreBytes) {
-        boolean report = false;
-        int br = 0;
-
-        synchronized (callback) {
-            long t_now = SystemClock.elapsedRealtimeNanos();
-            if (tStamp < 0) {
-                tNext = (tStamp = t_now) + measureWindowNanos;
-                this.nBytes = moreBytes;
-            } else if (t_now >= tNext) {
-                tStamp = tNext;
-                tNext += measureWindowNanos;
-                currentBitrate = br = Math.round(nBytes * 8f / measureWindowSeconds);
-                this.nBytes = moreBytes;
-                report = true;
-            } else {
-                this.nBytes += moreBytes;
-            }
-        }// synchronized (callback)
-
-        if (report) {
-            reportHandler.obtainMessage(MSG_BITRATE, br, 0).sendToTarget();
+        //--- Update global state values ---
+        synchronized (lock) {
+            tLastUpdate = t_now;
+            return (currentBitrate = br);
         }
     }
 
 
-    private static final int MSG_BITRATE = 1;
-    private static final int MSG_LOG = 2;
-
-    private final Handler reportHandler = new Handler(Looper.getMainLooper()) {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_BITRATE:
-                    callback.onBitrateMeasured(msg.arg1);
-                    break;
-                case MSG_LOG:
-                    Log.d(BitrateMeter.class.getSimpleName(), msg.obj.toString());
-                    break;
-            }
 
 
+
+
+
+
+
+
+    /**********************************************************************************************/
+    private class MemItem {
+        long tSegmentStart;
+        int segmentLength;
+
+        void set(long tSegmentStart, int segmentLength) {
+            this.tSegmentStart = tSegmentStart;
+            this.segmentLength = segmentLength;
         }
-    };
+
+        void clear() {
+            tSegmentStart = 0;
+            segmentLength = 0;
+        }
+    }
+
+
+    private final Deque<MemItem> heap = new LinkedList<>();
+
+
+    private MemItem getFreeMemItem() {
+        return heap.isEmpty() ? new MemItem() : heap.pop();
+    }
+
+    private void recycleMemItem(@NonNull MemItem mi) {
+        assert (mi != null);
+        mi.clear();
+        heap.push(mi);
+    }
+
+
 }
 
