@@ -41,7 +41,7 @@ typedef struct {
 
 typedef union {
 	uint32_t *numbers;
-	char *bytes;
+	uint8_t *bytes;
 } int32_char_union_t;
 
 typedef struct {

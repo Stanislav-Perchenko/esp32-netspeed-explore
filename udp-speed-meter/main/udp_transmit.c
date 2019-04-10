@@ -12,56 +12,125 @@
 
 #include "udp_transmit.h"
 #include "network_utils.h"
+#include "mean_filter.h"
+#include "rc4.h"
 
 static const char *TAG="UDP_TRANSMIT";
 
+void buildDataPackage(transm_data_buffer_t *pkg, uint32_t index) {
+	uint8_t *p = pkg->data.bytes;
+	uint32_t tmp;
+	index ++;
+
+	/*tmp = (uint32_t) pkg->zise;
+	ESP_LOGI(TAG, " tmp size = %d", tmp);
+	p[3] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[2] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[1] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[0] = (uint8_t)(tmp & 0xFF);
+
+	tmp = index;
+	p[7] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[6] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[5] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[4] = (uint8_t)(tmp & 0xFF);
+
+	tmp = (uint32_t) pkg->zise;
+	p[11] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[10] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[9] = (uint8_t)(tmp & 0xFF);
+	tmp = tmp >> 8;
+	p[8] = (uint8_t)(tmp & 0xFF);*/
+
+	pkg->data.numbers[0] = (uint32_t) pkg->zise;
+	pkg->data.numbers[1] = index;
+
+	uint8_t key[6];
+	uint32_t inv_idx = index ^ 0xFFFF;
+	key[0] = (uint8_t)index;
+	index = index >> 8;
+	key[1] = (uint8_t)index;
+	index = index >> 8;
+	key[2] = (uint8_t)index;
+	key[3] = (uint8_t)inv_idx;
+	inv_idx = inv_idx >> 8;
+	key[4] = (uint8_t)inv_idx;
+	inv_idx = inv_idx >> 8;
+	key[5] = (uint8_t)inv_idx;
+	rc4_init(key, 6);
+	rc4_output(pkg->data.bytes, 8, pkg->zise - 8);
+
+}
+
 static void task_worker(void *arg) {
 	int socket_id;
-	int32_char_union_t *data;
-	size_t data_size;
 	app_state_t *pAppState = (app_state_t *) arg;
+	uint64_t speed_acc;
+	uint32_t pkg_index;
 
-	vTaskDelay(500 / portTICK_PERIOD_MS);
+	vTaskDelay(600 / portTICK_PERIOD_MS);
 
 	network_task_t *netwTask = &pAppState->netwTask;
 
 	xSemaphoreTake(netwTask->accessLock, portMAX_DELAY);
 	netwTask->isAlive = true;
 	socket_id = netwTask->socketId;
-	data = &netwTask->transmit_data.data;
-	data_size = netwTask->transmit_data.zise;
+
 
 	struct sockaddr_in destAddr = {0};
-
 	destAddr.sin_addr.s_addr = netwTask->clientIpAddr;
 	destAddr.sin_family = AF_INET;
-	destAddr.sin_port = netwTask->port;
-
+	destAddr.sin_port = lwip_htons(netwTask->port);
+	char destAddrText[IP_ADD_TEXT_LEN];
+	ip2str((ip4_addr_t *)(&destAddr.sin_addr), destAddrText, IP_ADD_TEXT_LEN);
 	xSemaphoreGive(netwTask->accessLock);
 
-	struct timeval tv_start, tv_end;
+	ESP_LOGI(TAG, "---> Start sending data to %s:%d", destAddrText, destAddr.sin_port);
 
+	unsigned long timestamp = getUsecTimestamp();
+	unsigned long t_end;
+	mean_filter16_t *flt16_speed = flt16_buildFilter16(128);
+	pkg_index = 0;
+	buildDataPackage(&netwTask->transmit_data, pkg_index);
 	xEventGroupSetBits(netwTask->groupTaskAlive, NETWORK_TASK_FLAG_STARTED);
 	while(xSemaphoreTake(netwTask->semCmdFinish, 0) != pdTRUE) {
 
-		ESP_LOGI(TAG, "---> Start sending data");
-		uint32_t i, n = data_size / 4, origin = pAppState->statistics.n_pkg_transm * data_size;
-		for (i=0; i<n; i++) {
-			data->numbers[i] = origin + i;
+		int snd_err = lwip_sendto(socket_id, netwTask->transmit_data.data.bytes, netwTask->transmit_data.zise, 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+		if (snd_err !=netwTask->transmit_data.zise ) {
+			vTaskDelay(3 / portTICK_PERIOD_MS);
+			ESP_LOGI(TAG, "<~~~ Error send package[%d]: %d", pkg_index, snd_err);
+			continue;
 		}
+		t_end = getUsecTimestamp();
+		flt16_add(flt16_speed, (int16_t)(t_end - timestamp));
+		timestamp = t_end;
+		buildDataPackage(&netwTask->transmit_data, ++pkg_index);
 
-		gettimeofday(&tv_start, NULL);
-		int snd_err = lwip_sendto(socket_id, data->bytes, data_size, 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-		gettimeofday(&tv_end, NULL);
-		uint32_t dt = (uint32_t)(tv_end.tv_sec - tv_start.tv_sec)*1000000 + (uint32_t)(tv_end.tv_usec - tv_start.tv_usec);
-		ESP_LOGI(TAG, "<--- %u bytes were sent in %u us. Send result = %d", data_size, dt, snd_err);
-		vTaskDelay(1500 / portTICK_PERIOD_MS);
+
 		xSemaphoreTake(pAppState->statistics.accessLock, portMAX_DELAY);
-		pAppState->statistics.n_pkg_transm += 10;
-		//pAppState->statistics.speed ++;
+		pAppState->statistics.n_pkg_transm = pkg_index;
+		if (flt16_speed->size >= 48) {
+			speed_acc = netwTask->transmit_data.zise * flt16_speed->size;
+			speed_acc *= 8000000;
+			speed_acc /= flt16_sum(flt16_speed);
+			pAppState->statistics.speed = (uint32_t)speed_acc;
+		}
 		xSemaphoreGive(pAppState->statistics.accessLock);
 
+		if (pkg_index % 50 == 0) {
+			ESP_LOGI(TAG, "<--- 50 packages of %d bytes were sent. Nsent=%d", netwTask->transmit_data.zise, pkg_index);
+		}
+
 	}
+	flt16_clearFilter16(flt16_speed);
 	ESP_LOGE(TAG, "\tExit from task cycle");
 	xSemaphoreTake(netwTask->accessLock, portMAX_DELAY);
 	lwip_shutdown_r(netwTask->socketId, 0);

@@ -12,6 +12,7 @@ import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.alperez.esp32.netspeed_client.core.UDPReceiver;
 import com.alperez.esp32.netspeed_client.http.engine.BaseHttpRequest;
 import com.alperez.esp32.netspeed_client.http.engine.HttpCallback;
 import com.alperez.esp32.netspeed_client.http.engine.HttpExecutor;
@@ -41,9 +42,14 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private SeekBar vSeek;
     private View vFullScreenProgress;
     private ViewGroup vStatisticsPanel;
-    private TextView vTxtRemStatTitle;
     private TextView vTxtRemoteDataSize;
     private TextView vTxtRemoteSpeed;
+
+    private TextView vTxtLocalPkgTotal;
+    private TextView vTxtLocalPkgFailed;
+    private TextView vTxtLocalPercentFailed;
+    private TextView vTxtLocalBytesReceived;
+    private TextView vTxtLocalRcvSpeed;
 
     //----  Device parameters  ----
     private int mPkgSize;
@@ -95,13 +101,13 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
 
         (vStatisticsPanel = (ViewGroup) findViewById(R.id.statistics_panel)).setVisibility(View.GONE);
 
-        vTxtRemStatTitle = (TextView) vStatisticsPanel.findViewById(R.id.txt_remote_stats_title);
-        Drawable[] drr = vTxtRemStatTitle.getCompoundDrawables();
-        drr[0].setLevel(1);
-        drr[2].setLevel(0);
-
         vTxtRemoteDataSize = (TextView) vStatisticsPanel.findViewById(R.id.remote_data_size);
         vTxtRemoteSpeed = (TextView) vStatisticsPanel.findViewById(R.id.remote_speed);
+        vTxtLocalPkgTotal = (TextView) vStatisticsPanel.findViewById(R.id.local_n_packs_total);
+        vTxtLocalPkgFailed = (TextView) vStatisticsPanel.findViewById(R.id.local_n_packs_failed);
+        vTxtLocalPercentFailed = (TextView) vStatisticsPanel.findViewById(R.id.local_percent_failed);
+        vTxtLocalBytesReceived = (TextView) vStatisticsPanel.findViewById(R.id.local_n_bytes_total);
+        vTxtLocalRcvSpeed = (TextView) vStatisticsPanel.findViewById(R.id.local_speed);
 
         findViewById(R.id.action_start).setOnClickListener(this::onAction);
         findViewById(R.id.action_stop ).setOnClickListener(this::onAction);
@@ -118,11 +124,11 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private void updatePackageSize(int progress) {
         progress ++;
         if (progress < 13) {
-            mPkgSize = progress * 1024;
+            mPkgSize = progress * 256;
         } else if (progress < 23) {
-            mPkgSize = (12 + 2*(progress-12)) * 1024;
+            mPkgSize = (12 + 2*(progress-12)) * 256;
         } else {
-            mPkgSize = (32 + 4*(progress-22)) * 1024;
+            mPkgSize = (32 + 4*(progress-22)) * 256;
         }
         vTxtSize.setText(""+mPkgSize);
     }
@@ -260,6 +266,8 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
             hideFullScreenProgressIncremental();
             showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
+            startReceiver(mPort);
+            vStatisticsPanel.setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -274,6 +282,8 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable Void parsedData) {
             hideFullScreenProgressIncremental();
             showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
+            stopReceiver();
+            vStatisticsPanel.setVisibility(View.GONE);
         }
 
         @Override
@@ -343,32 +353,43 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
 
         final int n_packs = nStatus.statisticsModel.getnPackagesSent();
         vTxtRemoteDataSize.setText(String.format("%d/%d", n_packs, n_packs * nStatus.statusModel.getTransmitPackageSize()));
-        final float spd = (nStatus.statisticsModel.getSpeedBytesPerSecond() * 8) / 1024f;
+        final float spd = nStatus.statisticsModel.getSpeedBytesPerSecond() / 1000f;
         vTxtRemoteSpeed.setText(String.format("%.1f", spd));
 
 
         if ("IDLE".equals(prevDeviceState) && "TRANS".equals(mRemoteDeviceStatus.statusModel.getDeviceState())) {
             vStatisticsPanel.setVisibility(View.VISIBLE);
-            startReceiver();
         } else if ("IDLE".equals(mRemoteDeviceStatus.statusModel.getDeviceState())) {
             vStatisticsPanel.setVisibility(View.GONE);
-            stopReceiver();
         }
     }
 
 
+    private UDPReceiver udpReceiver;
 
-
-    private void startReceiver() {
-        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    private void startReceiver(int port) {
+        if (udpReceiver != null) {
+            if((udpReceiver.getPort() == port) && udpReceiver.isAlive()) {
+                return;
+            } else if (udpReceiver.isAlive()) {
+                udpReceiver.release();
+            }
+        }
+        udpReceiver = new UDPReceiver(port, "esp-udp-receiver", stats -> {
+            vTxtLocalPkgTotal.setText(""+stats.nTotalPkgReceived);
+            vTxtLocalPkgFailed.setText(""+stats.nPkgFailed);
+            vTxtLocalPercentFailed.setText(String.format("%.2f%%", stats.nPkgFailed*100f/stats.nTotalPkgReceived));
+            vTxtLocalBytesReceived.setText(""+stats.nBytesReceived);
+            vTxtLocalRcvSpeed.setText(String.format("%.1f kbit/s", stats.speed/1000f));
+        });
     }
 
     private void stopReceiver() {
-        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if ((udpReceiver != null) && udpReceiver.isAlive()) {
+            udpReceiver.release();
+            udpReceiver = null;
+        }
     }
 
-    private boolean isReceiverStarted() {
-        //TODO Implement this !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        return false;
-    }
+
 }

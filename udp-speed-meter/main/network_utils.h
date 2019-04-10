@@ -45,6 +45,7 @@ esp_err_t http_get_param_protocol(char *params_buf, cJSON *jResp, comm_protocol_
 esp_err_t http_get_param_port(char *params_buf, cJSON *jResp, uint16_t *paramPort);
 esp_err_t http_get_param_pkg_size(char *params_buf, cJSON *jResp, uint16_t *paramPkgSize);
 
+unsigned long getUsecTimestamp();
 
 
 #ifdef __cplusplus

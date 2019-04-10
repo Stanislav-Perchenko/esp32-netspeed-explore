@@ -9,7 +9,16 @@
 #include <string.h>
 #include "network_utils.h"
 #include "esp_http_server.h"
+#include "time.h"
 
+
+unsigned long getUsecTimestamp() {
+	static struct timeval tv_end;
+	gettimeofday(&tv_end, NULL);
+	unsigned long ret = tv_end.tv_sec;
+	ret *= 1000000;
+	return ret + tv_end.tv_usec;
+}
 
 ip_info_text_t *build_ip_info_text() {
 	ip_info_text_t *ret = (ip_info_text_t *) calloc(sizeof(ip_info_text_t), 1);
