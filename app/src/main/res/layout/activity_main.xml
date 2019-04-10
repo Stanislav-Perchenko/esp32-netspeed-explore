@@ -239,7 +239,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#000"
-                        android:text="10/10240"/>
+                        android:text="-"/>
                 </TableRow>
 
                 <TableRow
@@ -255,7 +255,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#000"
-                        android:text="1240"/>
+                        android:text="- (-%)"/>
                 </TableRow>
                 <TableRow
                     android:layout_width="match_parent"
@@ -266,11 +266,11 @@
                         android:layout_height="wrap_content"
                         android:layout_marginRight="24dp"
                         android:text="% failed:"/>
-                    <TextView android:id="@+id/local_percent_failed"
+                    <TextView android:id="@+id/local_packages_lost"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#000"
-                        android:text="1240"/>
+                        android:text="- (-%)"/>
                 </TableRow>
                 <TableRow
                     android:layout_width="match_parent"
@@ -285,7 +285,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#000"
-                        android:text="1240"/>
+                        android:text="-"/>
                 </TableRow>
                 <TableRow
                     android:layout_width="match_parent"
@@ -300,7 +300,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#000"
-                        android:text="1240"/>
+                        android:text="-"/>
                 </TableRow>
             </TableLayout>
 

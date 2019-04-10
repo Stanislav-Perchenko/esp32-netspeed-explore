@@ -1,6 +1,5 @@
 package com.alperez.esp32.netspeed_client;
 
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -22,6 +21,7 @@ import com.alperez.esp32.netspeed_client.http.impl.StatusHttpRequest;
 import com.alperez.esp32.netspeed_client.http.impl.StopHttpRequest;
 import com.alperez.esp32.netspeed_client.http.utils.HttpClientProvider;
 import com.alperez.esp32.netspeed_client.http.utils.ParseResponseHandler;
+import com.alperez.esp32.netspeed_client.model.StatisticsModel;
 import com.alperez.esp32.netspeed_client.model.StatusApiModel;
 import com.alperez.esp32.netspeed_client.model.StatusModel;
 import com.google.gson.Gson;
@@ -47,7 +47,7 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
 
     private TextView vTxtLocalPkgTotal;
     private TextView vTxtLocalPkgFailed;
-    private TextView vTxtLocalPercentFailed;
+    private TextView vTxtLocalPkgLost;
     private TextView vTxtLocalBytesReceived;
     private TextView vTxtLocalRcvSpeed;
 
@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         vTxtRemoteSpeed = (TextView) vStatisticsPanel.findViewById(R.id.remote_speed);
         vTxtLocalPkgTotal = (TextView) vStatisticsPanel.findViewById(R.id.local_n_packs_total);
         vTxtLocalPkgFailed = (TextView) vStatisticsPanel.findViewById(R.id.local_n_packs_failed);
-        vTxtLocalPercentFailed = (TextView) vStatisticsPanel.findViewById(R.id.local_percent_failed);
+        vTxtLocalPkgLost = (TextView) vStatisticsPanel.findViewById(R.id.local_packages_lost);
         vTxtLocalBytesReceived = (TextView) vStatisticsPanel.findViewById(R.id.local_n_bytes_total);
         vTxtLocalRcvSpeed = (TextView) vStatisticsPanel.findViewById(R.id.local_speed);
 
@@ -247,8 +247,20 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     private final HttpCallback<StatusApiModel> statusCallback = new HttpCallback<StatusApiModel>() {
         @Override
         public void onComplete(int seqNumber, JSONObject rawJson, @Nullable StatusApiModel parsedData) {
-            if ((parsedData != null) && (parsedData.statusModel != null) && (parsedData.statisticsModel !=null)) {
-                setRemoteDeviceStatus(parsedData);
+            if (parsedData != null) {
+                if (parsedData.statusModel != null) {
+                    if ("TRANS".equals(parsedData.statusModel.getDeviceState())) {
+                        if (vStatisticsPanel.getVisibility() != View.VISIBLE) vStatisticsPanel.setVisibility(View.VISIBLE);
+                        updateUiWithDeviceStatus(parsedData.statusModel);
+                        if (!isReceiverStarted()) startReceiver(mPort);
+                    } else {
+                        if (vStatisticsPanel.getVisibility() == View.VISIBLE) vStatisticsPanel.setVisibility(View.GONE);
+                        if (isReceiverStarted()) stopReceiver();
+                    }
+                }
+                if (parsedData.statisticsModel !=null) {
+                    updateRemoteStatistics(parsedData.statisticsModel, parsedData.statusModel);
+                }
             }
             hideFullScreenProgressIncremental();
             showHttpSuccessResult(mRequestsInProgress.remove(seqNumber), rawJson);
@@ -345,23 +357,33 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
     /**********************************************************************************************/
     /******************************  Display Remote device statistics  ****************************/
     /**********************************************************************************************/
-    private StatusApiModel mRemoteDeviceStatus;
-
-    private void setRemoteDeviceStatus(StatusApiModel nStatus) {
-        final String prevDeviceState = (mRemoteDeviceStatus == null) ? "IDLE" : mRemoteDeviceStatus.statusModel.getDeviceState();
-        mRemoteDeviceStatus = nStatus;
-
-        final int n_packs = nStatus.statisticsModel.getnPackagesSent();
-        vTxtRemoteDataSize.setText(String.format("%d/%d", n_packs, n_packs * nStatus.statusModel.getTransmitPackageSize()));
-        final float spd = nStatus.statisticsModel.getSpeedBytesPerSecond() / 1000f;
-        vTxtRemoteSpeed.setText(String.format("%.1f", spd));
-
-
-        if ("IDLE".equals(prevDeviceState) && "TRANS".equals(mRemoteDeviceStatus.statusModel.getDeviceState())) {
-            vStatisticsPanel.setVisibility(View.VISIBLE);
-        } else if ("IDLE".equals(mRemoteDeviceStatus.statusModel.getDeviceState())) {
-            vStatisticsPanel.setVisibility(View.GONE);
+    private void updateUiWithDeviceStatus(StatusModel remoteStatus) {
+        if ("UDP".equals(remoteStatus.getTransportProtocol())) {
+            vRgProtocol.check(R.id.radio_udp);
+        } else if ("TCP".equals(remoteStatus.getTransportProtocol())) {
+            vRgProtocol.check(R.id.radio_tcp);
+        } else {
+            vRgProtocol.check(-1);
         }
+        if (mPort != remoteStatus.getSocketPort()) {
+            vTxtPort.setText(""+(mPort = remoteStatus.getSocketPort()));
+        }
+        if (mPkgSize != remoteStatus.getTransmitPackageSize()) {
+            for (int progress=0; progress < 45; progress++) {
+                updatePackageSize(progress);
+                if (mPkgSize == remoteStatus.getTransmitPackageSize()) {
+                    vSeek.setProgress(progress);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void updateRemoteStatistics(StatisticsModel remoteStatistics, StatusModel remoteStatus) {
+        final int n_packs = remoteStatistics.getnPackagesSent();
+        vTxtRemoteDataSize.setText(String.format("%d/%d", n_packs, (long)n_packs * remoteStatus.getTransmitPackageSize()));
+        final float spd = remoteStatistics.getSpeedBytesPerSecond() / 1000f;
+        vTxtRemoteSpeed.setText(String.format("%.1f", spd));
     }
 
 
@@ -377,8 +399,8 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         }
         udpReceiver = new UDPReceiver(port, "esp-udp-receiver", stats -> {
             vTxtLocalPkgTotal.setText(""+stats.nTotalPkgReceived);
-            vTxtLocalPkgFailed.setText(""+stats.nPkgFailed);
-            vTxtLocalPercentFailed.setText(String.format("%.2f%%", stats.nPkgFailed*100f/stats.nTotalPkgReceived));
+            vTxtLocalPkgFailed.setText(String.format("%d (%.2f%%)", stats.nPkgFailed, stats.nPkgFailed*100f/stats.nTotalPkgReceived));
+            vTxtLocalPkgLost.setText(String.format("%d (%.2f%%)", stats.nPkgLost, stats.nPkgLost*100f/(stats.nPkgLost + stats.nTotalPkgReceived)));
             vTxtLocalBytesReceived.setText(""+stats.nBytesReceived);
             vTxtLocalRcvSpeed.setText(String.format("%.1f kbit/s", stats.speed/1000f));
         });
@@ -391,5 +413,8 @@ public class MainActivity extends AppCompatActivity implements HttpErrorDisplayF
         }
     }
 
+    private boolean isReceiverStarted() {
+        return (udpReceiver != null) && udpReceiver.isAlive();
+    }
 
 }

@@ -18,12 +18,14 @@ public class UDPReceiver {
     public static class Statistics {
         public final int nTotalPkgReceived;
         public final int nPkgFailed;
+        public final int nPkgLost;
         public final long nBytesReceived;
         public final int speed;
 
-        private Statistics(int nTotalPkgReceived, int nPkgFailed, long nBytesReceived, int speed) {
+        private Statistics(int nTotalPkgReceived, int nPkgFailed, int nPkgLost, long nBytesReceived, int speed) {
             this.nTotalPkgReceived = nTotalPkgReceived;
             this.nPkgFailed = nPkgFailed;
+            this.nPkgLost = nPkgLost;
             this.nBytesReceived = nBytesReceived;
             this.speed = speed;
         }
@@ -107,7 +109,7 @@ public class UDPReceiver {
     /****************************  Measure and notify statistics  *********************************/
     /**********************************************************************************************/
     private void notifyWorker() {
-        final long[] rslt = new long[5];
+        final long[] rslt = new long[6];
         while(!released) {
             try {
                 Thread.sleep(1000);
@@ -116,7 +118,7 @@ public class UDPReceiver {
             }
 
             rcvMeter.getResult(rslt);
-            Statistics s = new Statistics((int)rslt[0], (int)rslt[1], rslt[2], (int)rslt[3]);
+            Statistics s = new Statistics((int)rslt[0], (int)rslt[1], (int)rslt[2], rslt[3], (int)rslt[4]);
             mUiHandler.obtainMessage(1, s).sendToTarget();
         }
     }
