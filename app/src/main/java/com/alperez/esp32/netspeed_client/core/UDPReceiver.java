@@ -49,7 +49,6 @@ public class UDPReceiver {
         this.port = port;
         this.statisticsListener = statisticsListener;
         rcvMeter = new RcvStatisticsMeter();
-        rcvMeter.reset();
         worker = new Thread(this::job, this.threadName = threadName);
         worker.start();
         notifier = new Thread(this::notifyWorker, "rcv_notifier");
@@ -78,9 +77,9 @@ public class UDPReceiver {
             Log.d(threadName, "SO_RCVBUF="+socket.getReceiveBufferSize());
             DatagramPacket rcv = new DatagramPacket(dataBuffer, 0, dataBuffer.length);
             int n_rcv;
+            Log.d(threadName, "---> Start receiving data on port "+port);
             while(!released) {
                 try {
-                    Log.d(threadName, "---> Start receiving data on port "+port);
                     socket.receive(rcv);
                     n_rcv = rcvMeter.addNewPackage(dataBuffer, 0, rcv.getLength());
                     if ((n_rcv % 10) == 0) {
